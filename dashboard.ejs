@@ -1,0 +1,147 @@
+<%
+const words = {
+    en: {
+        title: "Call Detail", subtitle: "Records (CDR)", desc: "Comprehensive System Telemetry and Voice Activity Logs",
+        startTime: "Start Time", endTime: "End Time", roster: "Extension Roster", allExt: "All Extensions",
+        status: "Call Status", allDisp: "All Dispositions", src: "Source", dst: "Destination",
+        btn: "Apply Search Matrix Filters", thTime: "Timestamp", thSrc: "Source", thDst: "Destination",
+        thAir: "Airtime", thState: "State", thRec: "Call Recordings", noData: "No matching system data blocks located.",
+        download: "Download Audio", noAudio: "No Audio", footerLeft: "Telemetry Stream Activity", footerRight: "Total Records Computed:"
+    },
+    ar: {
+        title: "تفاصيل", subtitle: "سجلات المكالمات (CDR)", desc: "نظام القياس عن بعد الشامل وسجلات الأنشطة الصوتية",
+        startTime: "وقت البدء", endTime: "وقت الانتهاء", roster: "قائمة الموظفين", allExt: "جميع التحويلات",
+        status: "حالة المكالمة", allDisp: "جميع الحالات", src: "المصدر", dst: "الوجهة",
+        btn: "تطبيق فلاتر البحث", thTime: "التوقيت", thSrc: "المصدر", thDst: "الوجهة",
+        thAir: "مدة المكالمة", thState: "الحالة", thRec: "تسجيلات المكالمات", noData: "لم يتم العثور على سجلات مكالمات مطابقة.",
+        download: "تحميل الصوت", noAudio: "لا يوجد صوت", footerLeft: "نشاط تدفق البيانات", footerRight: "إجمالي السجلات المحسوبة:"
+    }
+};
+const t = words[currentLang];
+const isRtl = currentLang === 'ar';
+%>
+<!DOCTYPE html>
+<html lang="<%= currentLang %>" dir="<%= isRtl ? 'rtl' : 'ltr' %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Analytics - Call Logs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body { background-color: #1A0B2E; font-family: 'Cairo', sans-serif; }
+        .panel-surface { background-color: #2E113C; border: 1px solid #4A154B; }
+        .accent-orange { color: #FF8700; }
+        .font-vibrant-display { font-weight: 900; letter-spacing: -0.01em; }
+    </style>
+</head>
+<body class="bg-[#1A0B2E] text-slate-100 flex min-h-screen m-0 p-0">
+    <%- include('sidebar') %>
+    <div class="flex-1 p-8 relative">
+        <div class="absolute top-6 <%= isRtl ? 'left-8' : 'right-8' %> z-50">
+            <select onchange="location.href=window.location.pathname + '?lang=' + this.value" class="bg-[#2E113C] text-white border border-purple-900 rounded-xl px-4 py-2 text-sm font-bold shadow-2xl focus:outline-none focus:border-[#FF8700] cursor-pointer">
+                <option value="en" <%= currentLang === 'en' ? 'selected' : '' %>>English 🇬🇧</option>
+                <option value="ar" <%= currentLang === 'ar' ? 'selected' : '' %>>العربية 🇪🇬</option>
+            </select>
+        </div>
+        <div class="mb-6">
+            <h2 class="text-3xl font-vibrant-display text-white tracking-tight"><%= t.title %> <span class="accent-orange"><%= t.subtitle %></span></h2>
+            <p class="text-xs text-purple-400 font-bold tracking-widest uppercase mt-1"><%= t.desc %></p>
+        </div>
+        <form action="/cdr" method="GET" class="panel-surface p-5 rounded-2xl mb-8 grid grid-cols-1 md:grid-cols-6 gap-4 items-end shadow-2xl">
+            <input type="hidden" name="lang" value="<%= currentLang %>">
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider"><%= t.startTime %></label>
+                <input type="datetime-local" name="startDate" value="<%= moment(filters.startDate).format('YYYY-MM-DDTHH:mm') %>" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF8700]">
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider"><%= t.endTime %></label>
+                <input type="datetime-local" name="endDate" value="<%= moment(filters.endDate).format('YYYY-MM-DDTHH:mm') %>" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF8700]">
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider"><%= t.roster %></label>
+                <select name="targetExtension" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF8700]">
+                    <option value="ALL"><%= t.allExt %></option>
+                    <% roster.forEach(emp => { %>
+                        <option value="<%= emp.extension %>" <%= filters.targetExtension === emp.extension ? 'selected' : '' %>><%= emp.extension %> - <%= emp.name %></option>
+                    <% }) %>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider"><%= t.status %></label>
+                <select name="statusFilter" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF8700]">
+                    <option value="ALL" <%= filters.statusFilter === 'ALL' ? 'selected' : '' %>><%= t.allDisp %></option>
+                    <option value="ANSWERED" <%= filters.statusFilter === 'ANSWERED' ? 'selected' : '' %>>ANSWERED</option>
+                    <option value="NO ANSWER" <%= filters.statusFilter === 'NO ANSWER' ? 'selected' : '' %>>NO ANSWER</option>
+                    <option value="BUSY" <%= filters.statusFilter === 'BUSY' ? 'selected' : '' %>>BUSY</option>
+                    <option value="FAILED" <%= filters.statusFilter === 'FAILED' ? 'selected' : '' %>>FAILED</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider"><%= t.src %></label>
+                <input type="text" name="searchSrc" value="<%= filters.searchSrc %>" placeholder="e.g., 101" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white placeholder-purple-900 focus:outline-none focus:border-[#FF8700]">
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider"><%= t.dst %></label>
+                <input type="text" name="searchDst" value="<%= filters.searchDst %>" placeholder="e.g., 010..." class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white placeholder-purple-900 focus:outline-none focus:border-[#FF8700]">
+            </div>
+            <div class="md:col-span-6">
+                <button type="submit" class="w-full bg-[#FF8700] hover:bg-orange-600 text-white font-black py-3 rounded-lg text-sm uppercase tracking-wider shadow-md transition cursor-pointer"><%= t.btn %></button>
+            </div>
+        </form>
+        <div class="panel-surface rounded-2xl overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-start border-collapse">
+                    <thead>
+                        <tr class="bg-black/40 text-purple-300 text-xs font-bold uppercase border-b border-purple-900">
+                            <th class="p-4 tracking-wider text-start"><%= t.thTime %></th>
+                            <th class="p-4 tracking-wider text-start"><%= t.thSrc %></th>
+                            <th class="p-4 tracking-wider text-start"><%= t.thDst %></th>
+                            <th class="p-4 tracking-wider text-start"><%= t.thAir %></th>
+                            <th class="p-4 tracking-wider text-start"><%= t.thState %></th>
+                            <th class="p-4 tracking-wider text-end"><%= t.thRec %></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-purple-900/30 text-sm font-mono">
+                        <% if(calls.length === 0) { %>
+                            <tr><td colspan="6" class="p-8 text-center text-purple-400 font-sans"><%= t.noData %></td></tr>
+                        <% } %>
+                        <% calls.forEach(call => { %>
+                            <tr class="hover:bg-purple-950/40 transition">
+                                <td class="p-4 text-slate-400"><%= moment(call.calldate).format('YYYY-MM-DD HH:mm:ss') %></td>
+                                <td class="p-4 font-bold text-white"><%= call.src %></td>
+                                <td class="p-4 text-white"><%= call.dst %></td>
+                                <td class="p-4 text-purple-300"><%= call.billsec %>s</td>
+                                <td class="p-4">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider <%= call.disposition === 'ANSWERED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20' %>">
+                                        <%= call.disposition %>
+                                    </span>
+                                </td>
+                                <td class="p-4 text-end">
+                                    <% if (call.disposition === 'ANSWERED') { %>
+                                        <a href="/download-audio?uniqueid=<%= call.uniqueid %>" class="bg-[#D22B71] hover:bg-pink-700 text-white font-sans text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-md inline-block">📥 <%= t.download %></a>
+                                    <% } else { %>
+                                        <span class="text-xs font-sans text-purple-400/30 font-bold italic select-none <%= isRtl ? 'pl-3' : 'pr-3' %>"><%= t.noAudio %></span>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-6 py-4 border-t border-purple-900 bg-black/40 flex justify-between items-center">
+                <span class="text-xs font-bold uppercase tracking-widest text-purple-400"><%= t.footerLeft %></span>
+                <span class="text-sm font-black text-white"><%= t.footerRight %> <span class="text-[#FF8700]"><%= calls.length %> rows</span></span>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const clockEl = document.getElementById('digitalClock');
+            if(clockEl) { setInterval(() => { clockEl.textContent = new Date().toTimeString().split(' ')[0]; }, 1000); }
+        });
+    </script>
+</body>
+</html>

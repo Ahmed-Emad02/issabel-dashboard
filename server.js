@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const net = require('net');
 const http = require('http');
+const { exec } = require('child_process');
 const { Server } = require('socket.io');
 
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -29,6 +30,59 @@ const pool = mysql.createPool({
 
 let activeCalls = {};
 let peerStatus = {};
+let dongleStatus = [];
+
+
+// --- CHAN_DONGLE STATUS MONITOR ---
+function parseDongleDevices(output) {
+    const lines = output.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const headerIndex = lines.findIndex(l => l.startsWith('ID') && l.includes('State') && l.includes('IMEI'));
+    if (headerIndex === -1) return [];
+
+    return lines.slice(headerIndex + 1).map(line => {
+        // chan_dongle output is column based, but Provider Name can contain spaces.
+        const parts = line.split(/\s+/);
+        if (parts.length < 4) return null;
+
+        const id = parts[0] || '';
+        const group = parts[1] || '';
+        let state = parts[2] || '';
+        let idx = 3;
+        if (parts[2] === 'Not' && parts[3] === 'connec') { state = 'Not connected'; idx = 4; }
+        if (parts[2] === 'GSM' && parts[3] === 'not' && parts[4] === 're') { state = 'GSM not registered'; idx = 5; }
+
+        const rssi = parts[idx++] || '0';
+        const mode = parts[idx++] || '0';
+        const submode = parts[idx++] || '0';
+
+        // Last 5 columns are normally Model, Firmware, IMEI, IMSI, Number.
+        const tail = parts.slice(idx);
+        let number = tail.length ? tail[tail.length - 1] : 'Unknown';
+        let imsi = tail.length > 1 ? tail[tail.length - 2] : '';
+        let imei = tail.length > 2 ? tail[tail.length - 3] : '';
+        let firmware = tail.length > 3 ? tail[tail.length - 4] : '';
+        let model = tail.length > 4 ? tail[tail.length - 5] : '';
+        let provider = tail.length > 5 ? tail.slice(0, tail.length - 5).join(' ') : 'NONE';
+
+        if (!number || number === '') number = 'Unknown';
+        if (!provider || provider === '') provider = 'NONE';
+
+        return { id, group, state, rssi, mode, submode, provider, model, firmware, imei, imsi, number };
+    }).filter(Boolean);
+}
+
+function refreshDongleStatus() {
+    exec('/usr/sbin/asterisk -rx "dongle show devices"', { timeout: 5000 }, (err, stdout, stderr) => {
+        if (err) {
+            dongleStatus = [{ id: 'chan_dongle', group: '-', state: 'Unavailable', rssi: '0', mode: '-', submode: '-', provider: stderr || err.message, model: '', firmware: '', imei: '', imsi: '', number: 'Unknown' }];
+        } else {
+            dongleStatus = parseDongleDevices(stdout);
+        }
+        io.emit('dongleStatus', dongleStatus);
+    });
+}
+setInterval(refreshDongleStatus, 10000);
+setTimeout(refreshDongleStatus, 2000);
 
 // --- FIXED ASTERISK AMI REAL-TIME MONITORING ---
 function connectAMI() {
@@ -144,6 +198,7 @@ io.on('connection', (socket) => {
     }
     socket.emit('initialState', clean);
     socket.emit('peerStatus', peerStatus);
+    socket.emit('dongleStatus', dongleStatus);
 });
 
 // System Shared Middleware to fetch extension rosters and handle language toggles
@@ -274,7 +329,16 @@ app.get('/operator', (req, res) => {
     } catch (error) { res.status(500).send("Operator Panel Engine Error: " + error.message); }
 });
 
-// --- ROUTE 4: DOWNLOAD PIPELINE ---
+
+// --- ROUTE 4: CHAN_DONGLE STATUS VIEW ---
+app.get('/dongles', (req, res) => {
+    try {
+        refreshDongleStatus();
+        res.render('dongles', { dongles: dongleStatus, moment });
+    } catch (error) { res.status(500).send("Dongle Monitor Error: " + error.message); }
+});
+
+// --- ROUTE 5: DOWNLOAD PIPELINE ---
 app.get('/download-audio', async (req, res) => {
     try {
         const { uniqueid } = req.query;

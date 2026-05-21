@@ -1,0 +1,114 @@
+<%
+const words = {
+    en: {
+        title: "Roster", subtitle: "Performance Matrix", desc: "Directional Airtime Analysis and Contact Metrics",
+        startTime: "Start Window Time", endTime: "End Window Time", btn: "Compile Analytics Models",
+        thExt: "Extension", thName: "Employee Name", thInt: "Interactions", thIn: "Inbound Talk Time",
+        thOut: "Outbound Talk Time", thFoot: "Footprint", noData: "No staff telemetry blocks recorded inside this timeframe window.",
+        calls: "calls", min: "min", unique: "unique contacts", footerLeft: "Roster Stream Matrices", footerRight: "Total Active Records Filtered:"
+    },
+    ar: {
+        title: "مصفوفة", subtitle: "أداء الموظفين", desc: "تحليل وقت التحدث الموجه ومقاييس الاتصال لكل موظف",
+        startTime: "بداية النطاق الزمني", endTime: "نهاية النطاق الزمني", btn: "تجميع النماذج التحليلية",
+        thExt: "التحويلة", thName: "اسم الموظف", thInt: "التفاعلات", thIn: "وقت المكالمات الواردة",
+        thOut: "وقت المكالمات الصادرة", thFoot: "البصمة الرقمية", noData: "لم يتم تسجيل بيانات أداء للموظفين ضمن هذا النطاق الزمني.",
+        calls: "مكالمات", min: "دقيقة", unique: "جهات اتصال فريدة", footerLeft: "مصفوفات تدفق الموظفين", footerRight: "إجمالي السجلات النشطة المفلترة:"
+    }
+};
+const t = words[currentLang];
+const isRtl = currentLang === 'ar';
+%>
+<!DOCTYPE html>
+<html lang="<%= currentLang %>" dir="<%= isRtl ? 'rtl' : 'ltr' %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Analytics - Employee Metrics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body { background-color: #1A0B2E; font-family: 'Cairo', sans-serif; }
+        .panel-surface { background-color: #2E113C; border: 1px solid #4A154B; }
+        .accent-orange { color: #FF8700; }
+        .font-vibrant-display { font-weight: 900; letter-spacing: -0.01em; }
+    </style>
+</head>
+<body class="bg-[#1A0B2E] text-slate-100 flex min-h-screen m-0 p-0">
+    <%- include('sidebar') %>
+    <div class="flex-1 p-8 relative">
+        <div class="absolute top-6 <%= isRtl ? 'left-8' : 'right-8' %> z-50">
+            <select onchange="location.href=window.location.pathname + '?lang=' + this.value" class="bg-[#2E113C] text-white border border-purple-900 rounded-xl px-4 py-2 text-sm font-bold shadow-2xl focus:outline-none focus:border-[#FF8700] cursor-pointer">
+                <option value="en" <%= currentLang === 'en' ? 'selected' : '' %>>English 🇬🇧</option>
+                <option value="ar" <%= currentLang === 'ar' ? 'selected' : '' %>>العربية 🇪🇬</option>
+            </select>
+        </div>
+        <div class="mb-6">
+            <h2 class="text-3xl font-vibrant-display text-white tracking-tight"><%= t.title %> <span class="accent-orange"><%= t.subtitle %></span></h2>
+            <p class="text-xs text-purple-400 font-bold tracking-widest uppercase mt-1"><%= t.desc %></p>
+        </div>
+        <form action="/employees" method="GET" class="panel-surface p-5 rounded-2xl mb-8 grid grid-cols-1 md:grid-cols-3 gap-4 items-end shadow-2xl">
+            <input type="hidden" name="lang" value="<%= currentLang %>">
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider"><%= t.startTime %></label>
+                <input type="datetime-local" name="startDate" value="<%= moment(filters.startDate).format('YYYY-MM-DDTHH:mm') %>" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF8700]">
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider"><%= t.endTime %></label>
+                <input type="datetime-local" name="endDate" value="<%= moment(filters.endDate).format('YYYY-MM-DDTHH:mm') %>" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF8700]">
+            </div>
+            <div>
+                <button type="submit" class="w-full bg-[#FF8700] hover:bg-orange-600 text-white font-black py-3 rounded-lg text-sm uppercase tracking-wider shadow-md transition cursor-pointer"><%= t.btn %></button>
+            </div>
+        </form>
+        <div class="panel-surface rounded-2xl overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-start border-collapse">
+                    <thead>
+                        <tr class="bg-black/40 text-purple-300 text-xs font-bold uppercase border-b border-purple-900">
+                            <th class="p-4 tracking-wider text-start"><%= t.thExt %></th>
+                            <th class="p-4 tracking-wider text-start"><%= t.thName %></th>
+                            <th class="p-4 tracking-wider text-start"><%= t.thInt %></th>
+                            <th class="p-4 text-[#FF8700] tracking-wider text-start"><%= t.thIn %></th>
+                            <th class="p-4 text-[#D22B71] tracking-wider text-start"><%= t.thOut %></th>
+                            <th class="p-4 tracking-wider text-start"><%= t.thFoot %></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-purple-900/30 text-sm font-mono">
+                        <% if(employeeMetrics.length === 0) { %>
+                            <tr><td colspan="6" class="p-8 text-center text-purple-400 font-sans"><%= t.noData %></td></tr>
+                        <% } %>
+                        <% employeeMetrics.forEach(emp => { %>
+                            <tr class="hover:bg-purple-950/30 transition">
+                                <td class="p-4 text-[#FF8700] font-bold"><%= emp.extension %></td>
+                                <td class="p-4 text-white font-sans font-bold"><%= emp.name %></td>
+                                <td class="p-4 text-purple-200"><%= emp.totalCalls %> <%= t.calls %></td>
+                                <td class="p-4 text-emerald-400 font-bold">
+                                    <%= Math.round(emp.inboundTalkSec / 60) %> <%= t.min %> 
+                                    <span class="text-xs text-slate-500 block md:inline md:ml-1">(<%= emp.inboundTalkSec %>s)</span>
+                                </td>
+                                <td class="p-4 text-sky-400 font-bold">
+                                    <%= Math.round(emp.outboundTalkSec / 60) %> <%= t.min %> 
+                                    <span class="text-xs text-slate-500 block md:inline md:ml-1">(<%= emp.outboundTalkSec %>s)</span>
+                                </td>
+                                <td class="p-4 text-purple-300 font-sans"><%= emp.uniqueNumbers.size %> <%= t.unique %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-6 py-4 border-t border-purple-900 bg-black/40 flex justify-between items-center">
+                <span class="text-xs font-bold uppercase tracking-widest text-purple-400"><%= t.footerLeft %></span>
+                <span class="text-sm font-black text-white"><%= t.footerRight %> <span class="text-[#FF8700]"><%= employeeMetrics.length %> rows</span></span>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const clockEl = document.getElementById('digitalClock');
+            if(clockEl) { setInterval(() => { clockEl.textContent = new Date().toTimeString().split(' ')[0]; }, 1000); }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Corporate Intelligence Console</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        body { background-color: #1A0B2E; }
+        .panel-surface { background-color: #2E113C; border-color: #4A154B; }
+        .accent-orange { color: #FF8700; }
+        .bg-accent-orange { background-color: #FF8700; }
+        .bg-accent-orange:hover { background-color: #E07600; }
+        .accent-magenta { color: #D22B71; }
+    </style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen">
+
+    <div class="container mx-auto px-6 py-8">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-purple-900 pb-6 gap-4">
+            <div>
+                <h1 class="text-3xl font-black text-white tracking-tight">V2 <span class="accent-orange">Performance</span> Matrix</h1>
+                <p class="text-xs font-bold text-purple-300 uppercase tracking-widest">Premium Client Call Center Control Analytics</p>
+            </div>
+            <div class="panel-surface border px-5 py-3 rounded-xl shadow-lg flex items-center gap-3">
+                <div class="w-2 h-2 rounded-full bg-accent-orange animate-ping"></div>
+                <div id="digitalClock" class="font-mono text-xl font-bold tracking-wider text-white">00:00:00</div>
+            </div>
+        </header>
+
+        <form action="/" method="GET" class="panel-surface border p-6 rounded-2xl mb-8 grid grid-cols-1 md:grid-cols-5 gap-4 items-end shadow-2xl">
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider">Start Time</label>
+                <input type="datetime-local" name="startDate" value="<%= moment(filters.startDate).format('YYYY-MM-DDTHH:mm') %>" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF8700]">
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider">End Time</label>
+                <input type="datetime-local" name="endDate" value="<%= moment(filters.endDate).format('YYYY-MM-DDTHH:mm') %>" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF8700]">
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider">Filter Team Roster</label>
+                <select name="targetExtension" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF8700]">
+                    <option value="ALL">-- Full System (All Extensions) --</option>
+                    <% roster.forEach(emp => { %>
+                        <option value="<%= emp.extension %>" <%= filters.targetExtension === emp.extension ? 'selected' : '' %>>
+                            <%= emp.extension %> - <%= emp.name %>
+                        </option>
+                    <% }) %>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider">Source (Number/Ext)</label>
+                <input type="text" name="searchSrc" value="<%= filters.searchSrc %>" placeholder="e.g., 0102..." class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white placeholder-purple-800 focus:outline-none focus:border-[#FF8700]">
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-purple-300 mb-2 tracking-wider">Destination (Number/Ext)</label>
+                <input type="text" name="searchDst" value="<%= filters.searchDst %>" placeholder="e.g., 102" class="w-full bg-[#1A0B2E] border border-purple-900 rounded-lg px-3 py-2 text-sm text-white placeholder-purple-800 focus:outline-none focus:border-[#FF8700]">
+            </div>
+            <div class="md:col-span-5">
+                <button type="submit" class="w-full bg-accent-orange text-white font-black py-3 rounded-lg text-sm transition tracking-wider uppercase shadow-md">Execute Data Model Lookup</button>
+            </div>
+        </form>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="panel-surface border p-6 rounded-2xl shadow-lg">
+                <p class="text-xs font-bold text-purple-300 uppercase tracking-wider">Window Traffic Records</p>
+                <p class="text-4xl font-black text-white mt-1"><%= stats.totalCalls %></p>
+            </div>
+            <div class="panel-surface border p-6 rounded-2xl shadow-lg border-l-4 border-l-[#FF8700]">
+                <p class="text-xs font-bold text-purple-300 uppercase tracking-wider">Inbound Directional</p>
+                <p class="text-3xl font-black mt-1 text-white"><%= stats.inboundCount %> <span class="text-xs font-normal text-purple-400">calls</span></p>
+                <p class="text-sm font-bold text-[#FF8700] mt-1">Total: <%= stats.inboundMin %> air minutes</p>
+            </div>
+            <div class="panel-surface border p-6 rounded-2xl shadow-lg border-l-4 border-l-[#D22B71]">
+                <p class="text-xs font-bold text-purple-300 uppercase tracking-wider">Outbound Directional</p>
+                <p class="text-3xl font-black mt-1 text-white"><%= stats.outboundCount %> <span class="text-xs font-normal text-purple-400">calls</span></p>
+                <p class="text-sm font-bold text-[#D22B71] mt-1">Total: <%= stats.outboundMin %> air minutes</p>
+            </div>
+            <div class="panel-surface border p-6 rounded-2xl shadow-lg">
+                <p class="text-xs font-bold text-purple-300 uppercase tracking-wider">Resolution Status Connection Rate</p>
+                <p class="text-4xl font-black accent-magenta mt-1">
+                    <%= stats.totalCalls ? Math.round((stats.answeredCalls / stats.totalCalls) * 100) : 0 %>%
+                </p>
+            </div>
+        </div>
+
+        <div class="panel-surface border rounded-2xl overflow-hidden shadow-2xl mb-8">
+            <div class="px-6 py-4 border-b border-purple-900 bg-black/30">
+                <h2 class="text-lg font-bold text-white"><span class="accent-orange">Employee Performance</span> KPI Analytics</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-black/40 text-purple-300 text-xs font-bold uppercase tracking-wider border-b border-purple-900">
+                            <th class="p-4">Extension</th>
+                            <th class="p-4">Display Employee Name</th>
+                            <th class="p-4">Handled Calls Count</th>
+                            <th class="p-4">Cumulative Talk Time</th>
+                            <th class="p-4">Unique Contact Links</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-purple-900/30 text-sm font-mono">
+                        <% employeeMetrics.forEach(emp => { %>
+                            <tr class="hover:bg-purple-950/30 transition">
+                                <td class="p-4 text-[#FF8700] font-bold"><%= emp.extension %></td>
+                                <td class="p-4 text-white font-sans font-bold"><%= emp.name %></td>
+                                <td class="p-4 text-purple-200"><%= emp.totalCalls %></td>
+                                <td class="p-4 text-emerald-400 font-bold"><%= Math.round(emp.totalTalkSec / 60) %> min <span class="text-xs text-slate-500">(<%= emp.totalTalkSec %>s)</span></td>
+                                <td class="p-4 text-sky-400"><%= emp.uniqueNumbers.size %> unique contacts</td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="panel-surface border p-6 rounded-2xl shadow-xl md:col-span-1">
+                <h2 class="text-base font-bold mb-4 text-white uppercase tracking-wider">Segmentation</h2>
+                <div id="chartContainer" class="w-full h-[280px]"></div>
+            </div>
+
+            <div class="panel-surface border rounded-2xl overflow-hidden shadow-2xl md:col-span-2">
+                <div class="px-6 py-4 border-b border-purple-900 bg-black/20">
+                    <h2 class="text-base font-bold text-white uppercase tracking-wider">Granular Telemetry Stream Feed</h2>
+                </div>
+                <div class="overflow-x-auto max-h-[280px]">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-black/40 text-purple-300 text-xs font-bold uppercase tracking-wider border-b border-purple-900">
+                                <th class="p-4">Timestamp</th>
+                                <th class="p-4">Source</th>
+                                <th class="p-4">Destination</th>
+                                <th class="p-4">Airtime</th>
+                                <th class="p-4">State</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-purple-900/30 text-xs font-mono">
+                            <% calls.forEach(call => { %>
+                                <tr class="hover:bg-purple-950/40 transition">
+                                    <td class="p-4 text-slate-400"><%= moment(call.calldate).format('YYYY-MM-DD HH:mm:ss') %></td>
+                                    <td class="p-4">
+                                        <div class="text-white font-bold"><%= call.src %></div>
+                                        <div class="text-[10px] text-purple-400 font-sans"><%= call.src_name || 'System Route' %></div>
+                                    </td>
+                                    <td class="p-4">
+                                        <div class="text-white"><%= call.dst %></div>
+                                        <div class="text-[10px] text-purple-400 font-sans"><%= call.dst_name || 'System Route' %></div>
+                                    </td>
+                                    <td class="p-4 text-purple-300"><%= call.billsec %>s</td>
+                                    <td class="p-4">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-black tracking-wider
+                                            <%= call.disposition === 'ANSWERED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20' %>">
+                                            <%= call.disposition %>
+                                        </span>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function initClock() {
+            const clockEl = document.getElementById('digitalClock');
+            setInterval(() => {
+                const now = new Date();
+                clockEl.textContent = now.toTimeString().split(' ')[0];
+            }, 1000);
+        }
+
+        function initChart() {
+            var chartDom = document.getElementById('chartContainer');
+            var myChart = echarts.init(chartDom, 'dark');
+            var option = {
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'item', formatter: '{b}: {c} calls' },
+                legend: { bottom: '0%', textStyle: { color: '#c084fc', fontSize: 10 } },
+                series: [
+                    {
+                        name: 'Call Metrics',
+                        type: 'pie',
+                        radius: ['40%', '65%'],
+                        itemStyle: { borderRadius: 10, borderColor: '#2E113C', borderWidth: 2 },
+                        label: { show: false },
+                        data: [
+                            { value: <%= stats.inboundCount %>, name: 'Inbound Internal', itemStyle: { color: '#FF8700' } },
+                            { value: <%= stats.outboundCount %>, name: 'Outbound Trunk', itemStyle: { color: '#D22B71' } }
+                        ]
+                    }
+                ]
+            };
+            myChart.setOption(option);
+            window.addEventListener('resize', myChart.resize);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initClock();
+            initChart();
+        });
+    </script>
+</body>
+</html>

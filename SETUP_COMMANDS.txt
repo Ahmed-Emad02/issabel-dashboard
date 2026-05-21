@@ -1,0 +1,15 @@
+cd /opt/issabel-dashboard
+npm install
+cp .env.example .env
+nano .env
+nano /etc/asterisk/manager.conf
+asterisk -rx "manager reload"
+asterisk -rx "dongle show devices"
+node server.js
+
+# Service setup
+nano /etc/systemd/system/issabel-dashboard.service
+systemctl daemon-reload
+systemctl enable issabel-dashboard
+systemctl start issabel-dashboard
+systemctl status issabel-dashboard
