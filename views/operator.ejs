@@ -137,19 +137,33 @@ const isRtl = currentLang === 'ar';
                 });
             }, 1000);
 
+            socket.on('initialState', (calls) => {
+                for (let ext in calls) {
+                    const data = { extension: ext, callData: calls[ext] };
+                    handleCallUpdate(data);
+                }
+            });
+
             socket.on('peerStatus', (statusMap) => {
                 for (let ext in statusMap) {
                     const badge = document.getElementById('sipBadge-' + ext);
                     const label = document.getElementById('sipLabel-' + ext);
+                    const card = document.getElementById('card-' + ext);
                     if (!badge || !label) continue;
                     const online = statusMap[ext];
                     badge.className = 'h-2.5 w-2.5 rounded-full ' + (online ? 'bg-emerald-400 shadow-sm shadow-emerald-400' : 'bg-zinc-700');
                     label.className = 'text-[9px] font-bold uppercase tracking-wider ' + (online ? 'text-emerald-400' : 'text-zinc-600');
                     label.textContent = online ? '<%= t.online %>' : '<%= t.offline %>';
+                    if (card) {
+                        if (online) card.classList.remove('opacity-60', 'border-zinc-800/50');
+                        else if (!card.querySelector('#badge-' + ext)?.classList.contains('bg-sky-400')) {
+                            card.classList.add('opacity-60');
+                        }
+                    }
                 }
             });
 
-            socket.on('callUpdate', (data) => {
+            function handleCallUpdate(data) {
                 const { extension, callData } = data;
                 const card = document.getElementById('card-' + extension);
                 const badge = document.getElementById('badge-' + extension);
@@ -193,7 +207,9 @@ const isRtl = currentLang === 'ar';
                     partner.classList.add('hidden');
                     timer.classList.add('hidden');
                 }
-            });
+            }
+
+            socket.on('callUpdate', handleCallUpdate);
         });
     </script>
 </body>
