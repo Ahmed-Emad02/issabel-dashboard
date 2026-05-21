@@ -253,8 +253,58 @@ app.use(async (req, res, next) => {
     } catch (err) { next(err); }
 });
 
-// --- ROUTE 1: CDR DETAILS VIEW ---
-app.get('/', (req, res) => res.redirect('/cdr'));
+// --- ROUTE 1: LANDING DASHBOARD ---
+app.get('/', async (req, res) => {
+    try {
+        const startDate = req.query.startDate ? moment(req.query.startDate).format('YYYY-MM-DD HH:mm:ss') : moment().startOf('day').format('YYYY-MM-DD HH:mm:ss');
+        const endDate = req.query.endDate ? moment(req.query.endDate).format('YYYY-MM-DD HH:mm:ss') : moment().endOf('day').format('YYYY-MM-DD HH:mm:ss');
+
+        const [rows] = await pool.query("SELECT src, dst, billsec, disposition, channel, dstchannel, calldate FROM asteriskcdrdb.cdr WHERE calldate BETWEEN ? AND ?", [startDate, endDate]);
+
+        const stats = { totalCalls: 0, inboundCount: 0, outboundCount: 0, inboundMin: 0, outboundMin: 0, answeredCalls: 0 };
+        const employeeMetrics = {};
+        res.locals.roster.forEach(emp => {
+            employeeMetrics[emp.extension] = { extension: emp.extension, name: emp.name, totalCalls: 0, totalTalkSec: 0, uniqueNumbers: new Set() };
+        });
+
+        rows.forEach(row => {
+            stats.totalCalls++;
+            const sec = parseInt(row.billsec) || 0;
+            const isOutbound = row.channel.toUpperCase().includes('SIP/') && !row.dstchannel.toUpperCase().includes('SIP/');
+
+            if (row.disposition === 'ANSWERED') stats.answeredCalls++;
+
+            let counted = false;
+            [row.src, row.dst].forEach((ext, idx) => {
+                if (employeeMetrics[ext]) {
+                    employeeMetrics[ext].totalCalls++;
+                    employeeMetrics[ext].totalTalkSec += (row.disposition === 'ANSWERED' ? sec : 0);
+                    employeeMetrics[ext].uniqueNumbers.add(idx === 0 ? row.dst : row.src);
+                    counted = true;
+                }
+            });
+
+            if (employeeMetrics[row.src] && isOutbound) {
+                stats.outboundCount++;
+                if (row.disposition === 'ANSWERED') stats.outboundMin += sec;
+            } else if (employeeMetrics[row.dst]) {
+                stats.inboundCount++;
+                if (row.disposition === 'ANSWERED') stats.inboundMin += sec;
+            }
+        });
+
+        stats.inboundMin = Math.round(stats.inboundMin / 60);
+        stats.outboundMin = Math.round(stats.outboundMin / 60);
+
+        const calls = rows.slice(0, 50).map(r => ({
+            calldate: r.calldate, src: r.src, dst: r.dst, billsec: r.billsec, disposition: r.disposition
+        }));
+
+        res.render('dashboard', { stats, employeeMetrics: Object.values(employeeMetrics), calls, filters: { startDate, endDate }, moment });
+    } catch (error) { res.status(500).send("Dashboard Error: " + error.message); }
+});
+
+// --- ROUTE 2: CDR DETAILS VIEW ---
 app.get('/cdr', async (req, res) => {
     try {
         const startDate = req.query.startDate ? moment(req.query.startDate).format('YYYY-MM-DD HH:mm:ss') : moment().startOf('day').format('YYYY-MM-DD HH:mm:ss');
@@ -349,6 +399,122 @@ app.get('/employees', async (req, res) => {
     } catch (error) { res.status(500).send("Employee Analytics Error: " + error.message); }
 });
 
+// --- ROUTE: EXTENSION STATISTICS VIEW ---
+app.get('/ext-stats', (req, res) => {
+    try {
+        res.render('ext-stats', { moment });
+    } catch (error) { res.status(500).send("Extension Stats Error: " + error.message); }
+});
+
+// --- API: EXTENSION STATISTICS DATA ---
+app.get('/api/ext-stats/:extension', async (req, res) => {
+    try {
+        const { extension } = req.params;
+        const startDate = req.query.startDate ? moment(req.query.startDate).format('YYYY-MM-DD HH:mm:ss') : moment().startOf('day').format('YYYY-MM-DD HH:mm:ss');
+        const endDate = req.query.endDate ? moment(req.query.endDate).format('YYYY-MM-DD HH:mm:ss') : moment().endOf('day').format('YYYY-MM-DD HH:mm:ss');
+        const direction = req.query.direction || 'all';
+
+        const [rows] = await pool.query(
+            `SELECT c.calldate, c.src, c.dst, c.duration, c.billsec, c.disposition, c.channel, c.dstchannel, c.uniqueid
+             FROM asteriskcdrdb.cdr c
+             WHERE c.calldate BETWEEN ? AND ?
+             AND (c.src = ? OR c.dst = ?)
+             ORDER BY c.calldate DESC`,
+            [startDate, endDate, extension, extension]
+        );
+
+        const stats = {
+            extension,
+            totalCalls: 0, answeredCalls: 0,
+            inboundCalls: 0, outboundCalls: 0,
+            inboundTalkSec: 0, outboundTalkSec: 0,
+            totalTalkSec: 0, avgTalkSec: 0,
+            uniqueContacts: new Set(),
+            dispositionCounts: {},
+            dailyBreakdown: {}
+        };
+
+        rows.forEach(row => {
+            const sec = parseInt(row.billsec) || 0;
+            const isOutboundCall = row.channel.toUpperCase().includes('SIP/') && !row.dstchannel.toUpperCase().includes('SIP/');
+            const isSrc = row.src === extension;
+            const isDst = row.dst === extension;
+
+            if (!isSrc && !isDst) return;
+
+            let callDirection = 'internal';
+            if (isSrc && isOutboundCall) callDirection = 'outbound';
+            else if (isDst && !isOutboundCall) callDirection = 'inbound';
+            if (isSrc && isDst) callDirection = 'internal';
+
+            if (direction === 'inbound' && callDirection !== 'inbound') return;
+            if (direction === 'outbound' && callDirection !== 'outbound') return;
+
+            stats.totalCalls++;
+            if (row.disposition === 'ANSWERED') stats.answeredCalls++;
+
+            if (callDirection === 'outbound') {
+                stats.outboundCalls++;
+                if (row.disposition === 'ANSWERED') stats.outboundTalkSec += sec;
+                stats.uniqueContacts.add(row.dst);
+            } else if (callDirection === 'inbound') {
+                stats.inboundCalls++;
+                if (row.disposition === 'ANSWERED') stats.inboundTalkSec += sec;
+                stats.uniqueContacts.add(row.src);
+            } else {
+                stats.uniqueContacts.add(row.dst);
+                stats.uniqueContacts.add(row.src);
+            }
+
+            const disp = row.disposition || 'UNKNOWN';
+            stats.dispositionCounts[disp] = (stats.dispositionCounts[disp] || 0) + 1;
+
+            const day = moment(row.calldate).format('YYYY-MM-DD');
+            if (!stats.dailyBreakdown[day]) {
+                stats.dailyBreakdown[day] = { total: 0, answered: 0, inbound: 0, outbound: 0 };
+            }
+            stats.dailyBreakdown[day].total++;
+            if (row.disposition === 'ANSWERED') stats.dailyBreakdown[day].answered++;
+            if (callDirection === 'inbound') stats.dailyBreakdown[day].inbound++;
+            if (callDirection === 'outbound') stats.dailyBreakdown[day].outbound++;
+        });
+
+        stats.totalTalkSec = stats.inboundTalkSec + stats.outboundTalkSec;
+        stats.avgTalkSec = stats.answeredCalls ? Math.round(stats.totalTalkSec / stats.answeredCalls) : 0;
+        stats.uniqueContactCount = stats.uniqueContacts.size;
+        stats.uniqueContacts = [...stats.uniqueContacts];
+        stats.dispositionData = Object.entries(stats.dispositionCounts).map(([name, value]) => ({ name, value }));
+        stats.dailyData = Object.entries(stats.dailyBreakdown)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([date, data]) => ({ date, ...data }));
+
+        stats.recentCalls = [];
+        for (const row of rows) {
+            const sec = parseInt(row.billsec) || 0;
+            const isOutboundCall = row.channel.toUpperCase().includes('SIP/') && !row.dstchannel.toUpperCase().includes('SIP/');
+            const isSrc = row.src === extension;
+            const isDst = row.dst === extension;
+            if (!isSrc && !isDst) continue;
+            let callDirection = 'internal';
+            if (isSrc && isOutboundCall) callDirection = 'outbound';
+            else if (isDst && !isOutboundCall) callDirection = 'inbound';
+            if (isSrc && isDst) callDirection = 'internal';
+            if (direction === 'inbound' && callDirection !== 'inbound') continue;
+            if (direction === 'outbound' && callDirection !== 'outbound') continue;
+            stats.recentCalls.push({
+                calldate: row.calldate,
+                src: row.src, dst: row.dst,
+                billsec: sec, disposition: row.disposition
+            });
+            if (stats.recentCalls.length >= 50) break;
+        }
+
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- ROUTE 3: DEDICATED LIVE OPERATOR PANEL VIEW ---
 app.get('/operator', (req, res) => {
     try {
@@ -356,12 +522,12 @@ app.get('/operator', (req, res) => {
     } catch (error) { res.status(500).send("Operator Panel Engine Error: " + error.message); }
 });
 
-// --- ROUTE 4: DOWNLOAD PIPELINE ---
-app.get('/download-audio', async (req, res) => {
+// --- ROUTE 4: AUDIO STREAM / DOWNLOAD PIPELINE ---
+app.get('/audio/:uniqueid', async (req, res) => {
     try {
-        const { uniqueid } = req.query;
+        const { uniqueid } = req.params;
         const [rows] = await pool.query("SELECT calldate, recordingfile FROM cdr WHERE uniqueid = ? LIMIT 1", [uniqueid]);
-        if (!rows.length || !rows[0].recordingfile) return res.status(404).send("Audio track not documented.");
+        if (!rows.length || !rows[0].recordingfile) return res.status(404).send("Audio not found.");
 
         const callDate = moment(rows[0].calldate);
         const filename = rows[0].recordingfile;
@@ -372,12 +538,39 @@ app.get('/download-audio', async (req, res) => {
 
         let targetPath = null;
         for (const p of pathsToSearch) { if (fs.existsSync(p)) { targetPath = p; break; } }
-        if (!targetPath) return res.status(404).send("Audio file missing from server disks.");
+        if (!targetPath) return res.status(404).send("Audio file missing.");
 
-        res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-        res.setHeader('Content-Type', 'audio/wav');
-        fs.createReadStream(targetPath).pipe(res);
-    } catch (err) { res.status(500).send("Audio System Error: " + err.message); }
+        const stat = fs.statSync(targetPath);
+        const fileSize = stat.size;
+        const ext = path.extname(filename).toLowerCase();
+        const mimeTypes = { '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wma': 'audio/x-ms-wma', '.sln': 'audio/sln' };
+        const contentType = mimeTypes[ext] || 'audio/wav';
+
+        const isDownload = req.query.download === '1';
+        const range = req.headers.range;
+        if (range && !isDownload) {
+            const parts = range.replace(/bytes=/, '').split('-');
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+            const chunkSize = end - start + 1;
+            res.writeHead(206, {
+                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunkSize,
+                'Content-Type': contentType
+            });
+            fs.createReadStream(targetPath, { start, end }).pipe(res);
+        } else {
+            const disposition = isDownload ? 'attachment' : 'inline';
+            res.writeHead(200, {
+                'Content-Length': fileSize,
+                'Content-Type': contentType,
+                'Accept-Ranges': 'bytes',
+                'Content-Disposition': `${disposition}; filename="${filename}"`
+            });
+            fs.createReadStream(targetPath).pipe(res);
+        }
+    } catch (err) { res.status(500).send("Audio Error: " + err.message); }
 });
 
 server.listen(PORT, () => console.log(`Real-Time Enterprise Engine active on port ${PORT}`));
