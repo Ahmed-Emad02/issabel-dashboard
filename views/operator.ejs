@@ -7,6 +7,7 @@ const words = {
         incall: "In Call", ringing: "Ringing", idle: "Idle",
         connectedWith: "Connected with: ",
         noCall: "No Active Call",
+        barge: "Barge", whisper: "Whisper", listen: "Listen",
         footerLeft: "Asterisk Monitor Engine",
         footerRight: "Total Monitored Lines:"
     },
@@ -17,6 +18,7 @@ const words = {
         incall: "في مكالمة", ringing: "يرن", idle: "خامل",
         connectedWith: "متصل بـ: ",
         noCall: "لا توجد مكالمة نشطة",
+        barge: "تدخل", whisper: "همس", listen: "استماع",
         footerLeft: "محرك مراقبة أستيركس",
         footerRight: "إجمالي الخطوط المراقبة:"
     }
@@ -94,6 +96,11 @@ const isRtl = currentLang === 'ar';
                             <span id="partner-<%= emp.extension %>" class="text-[10px] font-mono text-purple-300 block truncate mt-1 <%= callState === 'incall' ? '' : 'hidden' %>">
                                 <%= t.connectedWith %><span class="font-bold text-white"><%= partnerNum %></span>
                             </span>
+                            <div id="spy-<%= emp.extension %>" class="flex gap-1.5 mt-2 <%= isRtl ? 'flex-row-reverse' : '' %> <%= callState === 'incall' ? '' : 'hidden' %>">
+                                <a href="tel:222<%= emp.extension %>" class="flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-purple-300 hover:text-white border border-purple-900/30 transition cursor-pointer" title="<%= t.listen %>"><%= t.listen %></a>
+                                <a href="tel:223<%= emp.extension %>" class="flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-purple-300 hover:text-white border border-purple-900/30 transition cursor-pointer" title="<%= t.whisper %>"><%= t.whisper %></a>
+                                <a href="tel:224<%= emp.extension %>" class="flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-purple-300 hover:text-white border border-purple-900/30 transition cursor-pointer" title="<%= t.barge %>"><%= t.barge %></a>
+                            </div>
                         </div>
                     </div>
                 <% }) %>
@@ -176,6 +183,8 @@ const isRtl = currentLang === 'ar';
                 const sipBadge = document.getElementById('sipBadge-' + extension);
                 const isOnline = sipBadge && sipBadge.classList.contains('bg-emerald-400');
 
+                const spy = document.getElementById('spy-' + extension);
+
                 if (callData) {
                     if (callData.state === 'In Call') {
                         if (!card.getAttribute('data-start')) {
@@ -189,6 +198,7 @@ const isRtl = currentLang === 'ar';
                         partner.classList.remove('hidden');
                         timer.textContent = formatDuration(parseInt(card.getAttribute('data-start')));
                         timer.classList.remove('hidden');
+                        if (spy) spy.classList.remove('hidden');
                     } else {
                         card.removeAttribute('data-start');
                         card.className = base + " border-[#FF8700]/60 animate-pulse" + (isOnline ? '' : ' opacity-60');
@@ -197,6 +207,7 @@ const isRtl = currentLang === 'ar';
                         status.textContent = labels.ringing;
                         partner.classList.add('hidden');
                         timer.classList.add('hidden');
+                        if (spy) spy.classList.add('hidden');
                     }
                 } else {
                     card.removeAttribute('data-start');
@@ -206,6 +217,7 @@ const isRtl = currentLang === 'ar';
                     status.textContent = labels.idle;
                     partner.classList.add('hidden');
                     timer.classList.add('hidden');
+                    if (spy) spy.classList.add('hidden');
                 }
             }
 
