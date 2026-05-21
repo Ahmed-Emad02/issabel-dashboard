@@ -30,13 +30,44 @@ const pool = mysql.createPool({
 let activeCalls = {};
 let peerStatus = {};
 
-// --- FIXED ASTERISK AMI REAL-TIME MONITORING ---
+// --- ASTERISK AMI REAL-TIME MONITORING ---
 function connectAMI() {
     activeCalls = {};
     peerStatus = {};
+    let loggedIn = false;
+    let queriedPeers = false;
     const client = net.connect({ port: process.env.AMI_PORT || 5038, host: '127.0.0.1' }, () => {
         client.write(`Action: Login\r\nUsername: ${process.env.AMI_USER}\r\nSecret: ${process.env.AMI_PASS}\r\n\r\n`);
+        console.log('AMI: Connection opened, login sent');
     });
+
+    // Fallback: if login detection fails, try SIPpeers anyway after 3s
+    setTimeout(() => {
+        if (!queriedPeers) {
+            console.log('AMI: Login not detected within 3s, sending SIPpeers anyway');
+            queriedPeers = true;
+            client.write(`Action: SIPpeers\r\n\r\n`);
+            setTimeout(() => {
+                if (!Object.keys(peerStatus).length) {
+                    console.log('AMI: SIPpeers returned nothing, trying PJSIPShowEndpoints');
+                    client.write(`Action: PJSIPShowEndpoints\r\n\r\n`);
+                }
+            }, 3000);
+        }
+    }, 3000);
+
+    function queryPeerStatus() {
+        if (queriedPeers) return;
+        queriedPeers = true;
+        console.log('AMI: Sending SIPpeers');
+        client.write(`Action: SIPpeers\r\n\r\n`);
+        setTimeout(() => {
+            if (!Object.keys(peerStatus).length) {
+                console.log('AMI: SIPpeers returned nothing, trying PJSIPShowEndpoints');
+                client.write(`Action: PJSIPShowEndpoints\r\n\r\n`);
+            }
+        }, 2000);
+    }
 
     let buffer = '';
     client.on('data', (data) => {
@@ -52,11 +83,47 @@ function connectAMI() {
                 if (parts[0] && parts[1]) event[parts[0].trim()] = parts[1].trim();
             });
 
+            // Detect successful login from Response or FullyBooted event
+            if (!loggedIn) {
+                if (event.Response === 'Success' || event.Event === 'FullyBooted') {
+                    console.log('AMI: Login detected');
+                    loggedIn = true;
+                    queryPeerStatus();
+                }
+            }
+
+            // Parse SIPpeers peer list entries
+            if (event.Event === 'PeerEntry') {
+                let name = event.ObjectName || '';
+                let status = event.Status || '';
+                if (name && status.startsWith('OK')) {
+                    peerStatus[name] = true;
+                }
+            }
+
+            // Parse PJSIPShowEndpoints endpoint entries
+            if (event.Event === 'EndpointList') {
+                let name = event.ObjectName || '';
+                if (name) {
+                    if (event.DeviceState === '1' || event.DeviceState === '0') {
+                        peerStatus[name] = event.DeviceState === '1';
+                    } else {
+                        peerStatus[name] = true;
+                    }
+                }
+            }
+
+            // Emit peerStatus once initial list queries complete
+            if (event.Event === 'PeerlistComplete' || event.Event === 'EndpointListComplete') {
+                console.log('AMI: Peer list complete, peers:', Object.keys(peerStatus));
+                io.emit('peerStatus', peerStatus);
+            }
+
             // Real-time peer registration changes
             if (event.Event === 'PeerStatus') {
                 let name = event.Peer ? event.Peer.replace(/^(SIP|PJSIP)\//, '') : '';
                 if (name) {
-                    peerStatus[name] = event.PeerStatus === 'Registered';
+                    peerStatus[name] = event.PeerStatus === 'Registered' || event.PeerStatus === 'Reachable';
                     io.emit('peerStatus', peerStatus);
                 }
             }
@@ -151,17 +218,32 @@ app.use(async (req, res, next) => {
     try {
         const [roster] = await pool.query("SELECT extension, name FROM asterisk.users ORDER BY extension ASC");
         let onlineMap = {};
-        for (let e of roster) onlineMap[e.extension] = peerStatus[e.extension] || false;
+        for (let e of roster) {
+            let online = peerStatus[e.extension] || false;
+            if (activeCalls[e.extension]) online = true;
+            onlineMap[e.extension] = online;
+        }
         if (Object.values(onlineMap).every(v => !v)) {
-            try {
-                const [peers] = await pool.query("SELECT name, ipaddr FROM asterisk.sipfriends WHERE ipaddr IS NOT NULL AND ipaddr != ''");
-                if (peers.length) peers.forEach(p => { onlineMap[p.name] = true; });
-            } catch (_) {
+            const dbQueries = [
+                "SELECT DISTINCT id FROM sip WHERE keyword='host' AND data IS NOT NULL AND data != ''",
+                "SELECT id, data FROM sip WHERE keyword='ipaddr' AND data IS NOT NULL AND data != '' AND data != 'dynamic' AND data != '-none-'",
+                "SELECT name, ipaddr FROM asterisk.sipfriends WHERE ipaddr IS NOT NULL AND ipaddr != ''",
+                "SELECT name, ipaddr FROM asterisk.sippeers WHERE ipaddr IS NOT NULL AND ipaddr != ''",
+                "SELECT id, ipaddr FROM asterisk.ps_endpoints WHERE ipaddr IS NOT NULL AND ipaddr != ''"
+            ];
+            for (const q of dbQueries) {
                 try {
-                    const [peers] = await pool.query("SELECT name, ipaddr FROM asterisk.sippeers WHERE ipaddr IS NOT NULL AND ipaddr != ''");
-                    if (peers.length) peers.forEach(p => { onlineMap[p.name] = true; });
-                } catch (_2) { }
+                    const [peers] = await pool.query(q);
+                    if (peers && peers.length) {
+                        peers.forEach(p => {
+                            const key = p.name || p.id;
+                            if (key) { onlineMap[key] = true; peerStatus[key] = true; }
+                        });
+                        break;
+                    }
+                } catch (_) { }
             }
+            if (Object.keys(peerStatus).length) console.log('DB fallback found peers:', Object.keys(peerStatus));
         }
         res.locals.roster = roster.map(emp => ({ ...emp, online: onlineMap[emp.extension] || false }));
         res.locals.activeCalls = activeCalls;
