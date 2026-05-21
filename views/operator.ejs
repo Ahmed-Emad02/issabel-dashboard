@@ -57,7 +57,7 @@ const isRtl = currentLang === 'ar';
             <p class="text-xs text-purple-400 font-bold tracking-widest uppercase mt-1"><%= t.desc %></p>
         </div>
         <div class="flex-1 min-h-0 overflow-y-auto mb-4 bg-black/20 rounded-2xl p-6 border border-purple-900/30">
-            <div id="switchboardGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div id="switchboardGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                 <% roster.forEach(emp => {
                     const live = activeCalls[emp.extension];
                     let callState = 'idle';
@@ -72,34 +72,34 @@ const isRtl = currentLang === 'ar';
                 %>
                     <div id="card-<%= emp.extension %>"
                          data-start="<%= startTimeStamp %>"
-                         class="panel-surface rounded-xl p-4 flex flex-col justify-between transition-all duration-300 relative overflow-hidden shadow-md border <%= !isOnline ? 'border-zinc-800/50 opacity-60' : callState === 'incall' ? 'border-sky-500/50 bg-gradient-to-br from-[#2E113C] to-sky-950/30' : callState === 'ringing' ? 'border-[#FF8700]/60 animate-pulse' : 'border-purple-900/30' %>">
+                         class="panel-surface rounded-xl p-6 flex flex-col justify-between transition-all duration-300 relative overflow-hidden shadow-md border <%= !isOnline ? 'border-zinc-800/50 opacity-60' : callState === 'incall' ? 'border-sky-500/50 bg-gradient-to-br from-[#2E113C] to-sky-950/30' : callState === 'ringing' ? 'border-[#FF8700]/60 animate-pulse' : 'border-purple-900/30' %>">
                         <div>
                             <div class="flex justify-between items-start">
                                 <div class="<%= isRtl ? 'text-right' : 'text-left' %>">
-                                    <span class="text-xl font-mono font-black text-[#FF8700] tracking-wider block"><%= emp.extension %></span>
-                                    <span class="text-sm font-bold text-white block truncate max-w-[140px]" title="<%= emp.name %>"><%= emp.name %></span>
+                                    <span class="text-2xl font-mono font-black text-[#FF8700] tracking-wider block"><%= emp.extension %></span>
+                                    <span class="text-base font-bold text-white block truncate" title="<%= emp.name %>"><%= emp.name %></span>
                                 </div>
-                                <div class="flex flex-col items-end space-y-1 shrink-0">
-                                    <span id="sipBadge-<%= emp.extension %>" class="h-2.5 w-2.5 rounded-full <%= isOnline ? 'bg-emerald-400 shadow-sm shadow-emerald-400' : 'bg-zinc-700' %>"></span>
-                                    <span id="sipLabel-<%= emp.extension %>" class="text-[9px] font-bold uppercase tracking-wider <%= isOnline ? 'text-emerald-400' : 'text-zinc-600' %>"><%= isOnline ? t.online : t.offline %></span>
+                                <div class="flex flex-col items-end space-y-1.5 shrink-0">
+                                    <span id="sipBadge-<%= emp.extension %>" class="h-3 w-3 rounded-full <%= isOnline ? 'bg-emerald-400 shadow-sm shadow-emerald-400' : 'bg-zinc-700' %>"></span>
+                                    <span id="sipLabel-<%= emp.extension %>" class="text-xs font-bold uppercase tracking-wider <%= isOnline ? 'text-emerald-400' : 'text-zinc-600' %>"><%= isOnline ? t.online : t.offline %></span>
                                 </div>
                             </div>
                         </div>
-                        <div class="border-t border-purple-950 pt-2 mt-2">
+                        <div class="border-t border-purple-950 pt-3 mt-3">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <span id="badge-<%= emp.extension %>" class="h-2.5 w-2.5 rounded-full shrink-0 <%= callState === 'incall' ? 'bg-sky-400 shadow-sm shadow-sky-400' : callState === 'ringing' ? 'bg-[#FF8700] shadow-sm shadow-orange-500' : 'bg-transparent' %>"></span>
-                                <span id="status-<%= emp.extension %>" class="text-xs font-bold uppercase tracking-wide <%= callState === 'incall' ? 'text-sky-400' : callState === 'ringing' ? 'text-[#FF8700]' : 'text-slate-600' %>">
+                                <span id="badge-<%= emp.extension %>" class="h-3 w-3 rounded-full shrink-0 <%= callState === 'incall' ? 'bg-sky-400 shadow-sm shadow-sky-400' : callState === 'ringing' ? 'bg-[#FF8700] shadow-sm shadow-orange-500' : 'bg-transparent' %>"></span>
+                                <span id="status-<%= emp.extension %>" class="text-sm font-bold uppercase tracking-wide <%= callState === 'incall' ? 'text-sky-400' : callState === 'ringing' ? 'text-[#FF8700]' : 'text-slate-600' %>">
                                     <%= callState === 'incall' ? t.incall : callState === 'ringing' ? t.ringing : t.noCall %>
                                 </span>
-                                <span id="timer-<%= emp.extension %>" class="text-xs font-mono font-bold text-sky-400 tracking-wider <%= callState === 'incall' ? '' : 'hidden' %>">00:00</span>
+                                <span id="timer-<%= emp.extension %>" class="text-sm font-mono font-bold text-sky-400 tracking-wider <%= callState === 'incall' ? '' : 'hidden' %>">00:00</span>
                             </div>
-                            <span id="partner-<%= emp.extension %>" class="text-[10px] font-mono text-purple-300 block truncate mt-1 <%= callState === 'incall' ? '' : 'hidden' %>">
+                            <span id="partner-<%= emp.extension %>" class="text-xs font-mono text-purple-300 block truncate mt-1.5 <%= callState === 'incall' ? '' : 'hidden' %>">
                                 <%= t.connectedWith %><span class="font-bold text-white"><%= partnerNum %></span>
                             </span>
-                            <div id="spy-<%= emp.extension %>" class="flex gap-1.5 mt-2 <%= isRtl ? 'flex-row-reverse' : '' %> <%= callState === 'incall' ? '' : 'hidden' %>">
-                                <a href="tel:222<%= emp.extension %>" class="flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-purple-300 hover:text-white border border-purple-900/30 transition cursor-pointer" title="<%= t.listen %>"><%= t.listen %></a>
-                                <a href="tel:223<%= emp.extension %>" class="flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-purple-300 hover:text-white border border-purple-900/30 transition cursor-pointer" title="<%= t.whisper %>"><%= t.whisper %></a>
-                                <a href="tel:224<%= emp.extension %>" class="flex-1 text-center text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-purple-300 hover:text-white border border-purple-900/30 transition cursor-pointer" title="<%= t.barge %>"><%= t.barge %></a>
+                            <div id="spy-<%= emp.extension %>" class="flex gap-2 mt-3 <%= isRtl ? 'flex-row-reverse' : '' %> <%= callState === 'incall' ? '' : 'hidden' %>">
+                                <a href="tel:222<%= emp.extension %>" class="flex-1 text-center text-xs font-bold uppercase tracking-wider py-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-purple-300 hover:text-white border border-purple-900/30 transition cursor-pointer" title="<%= t.listen %>"><%= t.listen %></a>
+                                <a href="tel:223<%= emp.extension %>" class="flex-1 text-center text-xs font-bold uppercase tracking-wider py-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-purple-300 hover:text-white border border-purple-900/30 transition cursor-pointer" title="<%= t.whisper %>"><%= t.whisper %></a>
+                                <a href="tel:224<%= emp.extension %>" class="flex-1 text-center text-xs font-bold uppercase tracking-wider py-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-purple-300 hover:text-white border border-purple-900/30 transition cursor-pointer" title="<%= t.barge %>"><%= t.barge %></a>
                             </div>
                         </div>
                     </div>
@@ -158,8 +158,8 @@ const isRtl = currentLang === 'ar';
                     const card = document.getElementById('card-' + ext);
                     if (!badge || !label) continue;
                     const online = statusMap[ext];
-                    badge.className = 'h-2.5 w-2.5 rounded-full ' + (online ? 'bg-emerald-400 shadow-sm shadow-emerald-400' : 'bg-zinc-700');
-                    label.className = 'text-[9px] font-bold uppercase tracking-wider ' + (online ? 'text-emerald-400' : 'text-zinc-600');
+                    badge.className = 'h-3 w-3 rounded-full ' + (online ? 'bg-emerald-400 shadow-sm shadow-emerald-400' : 'bg-zinc-700');
+                    label.className = 'text-xs font-bold uppercase tracking-wider ' + (online ? 'text-emerald-400' : 'text-zinc-600');
                     label.textContent = online ? '<%= t.online %>' : '<%= t.offline %>';
                     if (card) {
                         if (online) card.classList.remove('opacity-60', 'border-zinc-800/50');
@@ -179,7 +179,7 @@ const isRtl = currentLang === 'ar';
                 const timer = document.getElementById('timer-' + extension);
                 if (!card || !badge || !status || !partner || !timer) return;
 
-                const base = "panel-surface rounded-xl p-4 flex flex-col justify-between transition-all duration-300 relative overflow-hidden shadow-md border";
+                const base = "panel-surface rounded-xl p-6 flex flex-col justify-between transition-all duration-300 relative overflow-hidden shadow-md border";
                 const sipBadge = document.getElementById('sipBadge-' + extension);
                 const isOnline = sipBadge && sipBadge.classList.contains('bg-emerald-400');
 
@@ -191,8 +191,8 @@ const isRtl = currentLang === 'ar';
                             card.setAttribute('data-start', Date.now());
                         }
                         card.className = base + " border-sky-500/50 bg-gradient-to-br from-[#2E113C] to-sky-950/30" + (isOnline ? '' : ' opacity-60');
-                        badge.className = "h-2.5 w-2.5 rounded-full shrink-0 bg-sky-400 shadow-sm shadow-sky-400";
-                        status.className = "text-xs font-bold uppercase tracking-wide text-sky-400";
+                        badge.className = "h-3 w-3 rounded-full shrink-0 bg-sky-400 shadow-sm shadow-sky-400";
+                        status.className = "text-sm font-bold uppercase tracking-wide text-sky-400";
                         status.textContent = labels.incall;
                         partner.innerHTML = labels.connected + '<span class="font-bold text-white">' + (callData.partner || '') + '</span>';
                         partner.classList.remove('hidden');
@@ -202,8 +202,8 @@ const isRtl = currentLang === 'ar';
                     } else {
                         card.removeAttribute('data-start');
                         card.className = base + " border-[#FF8700]/60 animate-pulse" + (isOnline ? '' : ' opacity-60');
-                        badge.className = "h-2.5 w-2.5 rounded-full shrink-0 bg-[#FF8700] shadow-sm shadow-orange-500";
-                        status.className = "text-xs font-bold uppercase tracking-wide text-[#FF8700]";
+                        badge.className = "h-3 w-3 rounded-full shrink-0 bg-[#FF8700] shadow-sm shadow-orange-500";
+                        status.className = "text-sm font-bold uppercase tracking-wide text-[#FF8700]";
                         status.textContent = labels.ringing;
                         partner.classList.add('hidden');
                         timer.classList.add('hidden');
@@ -212,8 +212,8 @@ const isRtl = currentLang === 'ar';
                 } else {
                     card.removeAttribute('data-start');
                     card.className = base + " border-purple-900/30" + (isOnline ? '' : ' border-zinc-800/50 opacity-60');
-                    badge.className = "h-2.5 w-2.5 rounded-full shrink-0 bg-transparent";
-                    status.className = "text-xs font-bold uppercase tracking-wide text-slate-600";
+                    badge.className = "h-3 w-3 rounded-full shrink-0 bg-transparent";
+                    status.className = "text-sm font-bold uppercase tracking-wide text-slate-600";
                     status.textContent = labels.idle;
                     partner.classList.add('hidden');
                     timer.classList.add('hidden');
